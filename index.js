@@ -4,6 +4,7 @@ require("dotenv").config();
 const cors = require("cors");
 const e = require("express");
 const { query } = require("express");
+var admin = require("firebase-admin");
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -11,12 +12,35 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// firebase server admin initialization
+
+var serviceAccount = require("./ema-jhon-4d7bd-firebase-adminsdk-zrw3g-d4edaa2aff.json");
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+// database informati
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.sjbgh.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
-// console.log(uri);
+
+const verifyToken = async (req, res, next) => {
+  const authorize = req.headers.authorization.startsWith("bearer");
+  console.log(authorize);
+  if (authorize) {
+    const idToken = req.headers.authorization.split(" ")[1];
+    try {
+      const decodeUser = await admin.auth().verifyIdToken(idToken);
+      req.decodeUserEmail = decodeUser.email;
+    } catch {
+      //
+    }
+  }
+  next();
+};
+
 const run = async () => {
   try {
     await client.connect();
@@ -65,14 +89,16 @@ const run = async () => {
 
     // get order data form db
 
-    app.get("/order/:email", async (req, res) => {
+    app.get("/order/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
-      let query = {};
-      if (email) {
-        query = { email: email };
+      console.log("deee", req.decodeUserEmail, email);
+      if (req.decodeUserEmail === email) {
+        const query = { email: email };
+        const result = await orderCollection.find(query).toArray();
+        res.send(result);
+      } else {
+        res.status(401).json({ message: "user not authorised" });
       }
-      const result = await orderCollection.find({ email: email }).toArray();
-      res.send(result);
     });
   } finally {
   }
