@@ -2,6 +2,8 @@ const express = require("express");
 const { MongoClient } = require("mongodb");
 require("dotenv").config();
 const cors = require("cors");
+const e = require("express");
+const { query } = require("express");
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -14,7 +16,7 @@ const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
-
+// console.log(uri);
 const run = async () => {
   try {
     await client.connect();
@@ -50,7 +52,7 @@ const run = async () => {
         // res.send(result);
       });
 
-      // inser order details-
+      // insert order details-
       app.post("/order", async (req, res) => {
         const order = req.body;
         const result = await orderCollection.insertOne(order);
@@ -59,6 +61,18 @@ const run = async () => {
       });
 
       res.send({ count, products });
+    });
+
+    // get order data form db
+
+    app.get("/order/:email", async (req, res) => {
+      const email = req.params.email;
+      let query = {};
+      if (email) {
+        query = { email: email };
+      }
+      const result = await orderCollection.find({ email: email }).toArray();
+      res.send(result);
     });
   } finally {
   }
